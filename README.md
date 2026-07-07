@@ -1,4 +1,6 @@
-# OpenCode 中文思考配置包 (opencode-zh-thinking)
+# OpenCode 中文思考 (opencode-zh-thinking)
+
+自用，能够尽量保证中文思考
 
 让 OpenCode AI 编程助手**全程使用简体中文进行思考、分析、规划和回复**，即使在大量英文内容注入后也能保持中文。
 
