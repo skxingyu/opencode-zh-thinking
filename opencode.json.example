@@ -5,15 +5,20 @@
     "build-zh": {
       "description": "默认工作模式的中文版，所有思考和回复使用简体中文",
       "mode": "primary",
-      "prompt": "AGENTS.md 同目录下的 prompts/build-zh.txt 文件内容"
+      "prompt": "（将 prompts/build-zh.txt 的全部内容粘贴到此）"
     },
     "compose": {
-      "prompt": "AGENTS.md 同目录下的 prompts/compose-zh.md 文件内容"
+      "color": "#a7a3d8",
+      "description": "基于 superpowers-zh 技能的 Compose 编排模式，适合复杂多步骤任务",
+      "mode": "primary",
+      "prompt": "（将 prompts/compose-zh.md 的全部内容粘贴到此）"
     }
   },
+  "plugin": [
+    "superpowers@git+https://github.com/jnMetaCode/superpowers-zh.git"
+  ],
   "instructions": [
     "~/.config/opencode/AGENTS.md",
-    "~/.config/opencode/instructions/workflow.md",
-    "~/.config/opencode/prompts/compose-zh.md"
+    "~/.config/opencode/instructions/workflow.md"
   ]
 }
