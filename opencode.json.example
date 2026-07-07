@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "build-zh",
+  "agent": {
+    "build-zh": {
+      "description": "默认工作模式的中文版，所有思考和回复使用简体中文",
+      "mode": "primary",
+      "prompt": "AGENTS.md 同目录下的 prompts/build-zh.txt 文件内容"
+    },
+    "compose": {
+      "prompt": "AGENTS.md 同目录下的 prompts/compose-zh.md 文件内容"
+    }
+  },
+  "instructions": [
+    "~/.config/opencode/AGENTS.md",
+    "~/.config/opencode/instructions/workflow.md",
+    "~/.config/opencode/prompts/compose-zh.md"
+  ]
+}
