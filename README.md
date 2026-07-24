@@ -1,14 +1,30 @@
 # OpenCode 中文思考 (opencode-zh-thinking)
 
-自用，能够尽量保证中文思考
+让 OpenCode AI 编程助手使用简体中文思考和回复。提供两种互补的方案，你可以根据需求选择或组合使用。
 
-让 OpenCode AI 编程助手**全程使用简体中文进行思考、分析、规划和回复**，同时集成 **superpowers-zh** 技能系统实现专业工作流编排。
+---
 
-## 解决的问题
+## 方案对比
+
+| | **方案 A：提示词替换**（原方案） | **方案 B：翻译代理**（新方案） |
+|---|---|---|
+| **原理** | 替换系统 prompt 为全中文，从源头强制 AI 中文思考 | 在 HTTP 代理层拦截 SSE 事件流，将英文 reasoning 实时翻译为中文 |
+| **侵入性** | 需修改 opencode.json 配置 | 零配置，启动代理即可 |
+| **适用范围** | 仅影响 AI 内部的思考过程 | 可作用于任何 SSE 驱动的 AI 前端 |
+| **稳定性** | ⚠️ 在大量英文注入和多轮对话后容易失效 | ✅ 稳定：直接翻译，不受 prompt 漂移影响 |
+| **实现** | `prompts/` + `AGENTS.md` + `instructions/` | `proxy-translator/` 独立 Node.js 代理 |
+
+> **关键结论**：任何通过提示词强制中文思考的方案，在大量英文工具输出、代码上下文注入、长多轮对话之后，AI 都容易切回英文。**直接翻译的方案反而更稳**——它不依赖 AI 对语言指令的遵从，而是从传输层直接替换内容。
+
+---
+
+## 方案 A：提示词替换（原方案）
+
+### 解决的问题
 
 OpenCode 默认的 system prompt 是英文的，当工具返回大量英文结果时，AI 的**内部思考过程**容易切换到英文。这个配置包通过三层防护机制，强制 AI 保持中文思考。
 
-## 三层防护机制
+### 三层防护机制
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -25,7 +41,7 @@ OpenCode 默认的 system prompt 是英文的，当工具返回大量英文结�
 └─────────────────────────────────────────────┘
 ```
 
-## 集成 superpowers-zh
+### 集成 superpowers-zh
 
 compose agent 基于 [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) 技能系统（obra/superpowers 的中文增强 fork），提供专业工作流编排能力：
 
@@ -45,7 +61,7 @@ compose agent 基于 [superpowers-zh](https://github.com/jnMetaCode/superpowers-
 
 技能系统通过 OpenCode 的 `plugin` 机制自动加载和注册。
 
-## 文件说明
+### 文件说明
 
 ```
 opencode-zh-thinking/
@@ -61,21 +77,18 @@ opencode-zh-thinking/
 
 不包含任何 provider 或个人 MCP 配置——你可以按需集成到自己的配置中。
 
-## 快速开始
+### 快速开始
 
-### 1. 复制配置文件
+#### 1. 复制配置文件
 
 ```bash
-# 将配置复制到 opencode 配置目录
 cp AGENTS.md ~/.config/opencode/
 cp instructions/workflow.md ~/.config/opencode/instructions/
 cp prompts/compose-zh.md ~/.config/opencode/prompts/
 cp prompts/build-zh.txt ~/.config/opencode/prompts/
 ```
 
-### 2. 合并到你现有的 opencode.json
-
-将以下内容合并到你现有的 `~/.config/opencode/opencode.json` 中：
+#### 2. 合并到你现有的 opencode.json
 
 ```json
 {
@@ -103,7 +116,7 @@ cp prompts/build-zh.txt ~/.config/opencode/prompts/
 }
 ```
 
-### 3. 使用方式
+#### 3. 使用方式
 
 ```bash
 # 默认（build-zh 模式）
@@ -113,7 +126,7 @@ opencode
 opencode --agent compose
 ```
 
-### 4. 在 OpenCode 中使用技能
+#### 4. 在 OpenCode 中使用技能
 
 ```bash
 # 列出可用技能
@@ -124,7 +137,7 @@ skill "superpowers:brainstorming"
 skill "superpowers:chinese-code-review"
 ```
 
-## 原理说明
+### 原理说明
 
 OpenCode 的系统提示词按以下顺序组装：
 
@@ -134,6 +147,72 @@ OpenCode 的系统提示词按以下顺序组装：
 4. **Custom Instructions** — AGENTS.md + workflow.md
 
 传统方法（如只修改 AGENTS.md）只能在第 4 层追加中文指令，但第 2 层的英文 prompt 仍然在开头。本方案通过**替换第 2 层为全中文**，从根源上解决了语言切换问题。
+
+---
+
+## 方案 B：翻译代理（新方案）
+
+### 解决的问题
+
+方案 A（提示词替换）在以下场景中容易失效：
+- 工具返回大量英文结果（代码分析、日志、文档）
+- 多轮对话后 AI 回复逐渐偏离中文指令
+- 模型升级或切换 provider 后 prompt 兼容性下降
+
+翻译代理不依赖 AI 遵从语言指令，而是**在传输层直接拦截并翻译**。
+
+### 架构
+
+```
+TUI ──▶ 翻译代理(8081) ──▶ OpenCode Server(4096)
+                │
+                ▼
+          翻译引擎 (Ollama / 云端 API)
+```
+
+- 全量 HTTP 反向代理，零配置接入
+- 自动识别 SSE 事件流中的 reasoning 内容
+- 实时翻译为中文，保留事件结构和顺序
+- 支持本地 Ollama 和云端 API 两种翻译后端
+
+### 快速开始
+
+```bash
+# 1. 进入翻译代理目录
+cd proxy-translator/
+
+# 2. 安装依赖
+npm install
+
+# 3. 拉取翻译模型
+ollama pull kaelri/hy-mt2:1.8b
+
+# 4. 启动代理
+npm run dev
+
+# 5. 连接 OpenCode
+opencode attach http://localhost:8081
+```
+
+### 详细文档
+
+见 [`proxy-translator/SUMMARY.md`](proxy-translator/SUMMARY.md)，包含：
+- 架构设计与组件说明
+- 翻译流程时序图
+- 模型选择指南（含备选模型对比）
+- 云端 API 集成方案（OpenAI / 通义千问 / DeepSeek）
+- 通用适用性说明（适配其他 AI 工具）
+- 性能与缓存机制
+- 已知限制与后续优化
+
+---
+
+## 组合使用
+
+两种方案不冲突，可以同时使用：
+
+1. 用 **方案 A（提示词替换）** 让 AI 尽量用中文思考
+2. 用 **方案 B（翻译代理）** 作为兜底，补上提示词覆盖不到的部分
 
 ## 许可证
 
