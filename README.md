@@ -1,7 +1,7 @@
 # OpenCode 中文思考 (opencode-zh-thinking)
 
 让 OpenCode AI 编程助手使用简体中文思考和回复。提供两种互补的方案，你可以根据需求选择或组合使用。
-
+本地ollama下个腾讯hy0.8B的翻译模型，快速好用。翻译就是最稳的，
 ---
 
 ## 方案对比
