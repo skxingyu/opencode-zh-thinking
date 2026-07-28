@@ -170,6 +170,12 @@ TUI ──▶ 翻译代理(8081) ──▶ OpenCode Server(4096)
           翻译引擎 (Ollama / 云端 API)
 ```
 
+### 效果展示
+
+![翻译代理效果](proxy-translator/screenshot.png)
+
+*终端内英文提问 → 思考过程实时翻译为中文 → 中文回复，全程无需手动指定语言*
+
 - 全量 HTTP 反向代理，零配置接入
 - 自动识别 SSE 事件流中的 reasoning 内容
 - 实时翻译为中文，保留事件结构和顺序
