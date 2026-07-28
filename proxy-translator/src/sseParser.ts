@@ -58,7 +58,7 @@ export function createSSETransform(
   state: ReasoningState,
   handleBusEvent: (event: BusEvent, config: Config, state: ReasoningState) => Promise<BusEvent[]>,
   getEventCategory: (event: BusEvent) => 'reasoning-complete' | 'other',
-  translateEvent: (event: BusEvent, config: Config) => Promise<BusEvent | null>,
+  translateEvent: (event: BusEvent, config: Config, state: ReasoningState) => Promise<BusEvent | null>,
 ): Transform {
   let buffer = '';
   let detectedWrapped: boolean | null = null;
@@ -121,7 +121,7 @@ export function createSSETransform(
           if (category === 'reasoning-complete') {
             // 发起翻译但不 await，先占位
             pendingTranslate = {
-              promise: translateEvent(busEvent, config),
+              promise: translateEvent(busEvent, config, state),
               originalEvent: busEvent,
               placeholderIndex: results.length,
             };

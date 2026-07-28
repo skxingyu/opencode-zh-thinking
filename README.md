@@ -179,7 +179,7 @@ TUI ──▶ 翻译代理(8081) ──▶ OpenCode Server(4096)
 
 | 目标 | 说明 |
 |------|------|
-| **实时中英对照** | 英文思考流式先出，~1s 后 completion 自动变为中文，不影响阅读节奏 |
+| **实时中文段落** | 英文思考按段落实时翻译为中文，逐段展示，不等 completion |
 | **零配置接入** | 无需修改 OpenCode 配置或代码，只需将 TUI 连接到代理端口 |
 | **事件完整性** | 所有 SSE 事件严格按原始顺序透传，翻译不会破坏 TUI 的状态机 |
 | **优雅降级** | 翻译引擎不可用时自动回退到英文原文，TUI 功能不受影响 |
@@ -204,6 +204,26 @@ npm run dev
 # 5. 连接 OpenCode
 opencode attach http://localhost:8081
 ```
+
+### 一键启动快捷键（推荐）
+
+安装后只需输入 `oc` 即可一键启动全部组件：
+
+```powershell
+# 1. 一键安装
+cd proxy-translator/
+PowerShell -ExecutionPolicy Bypass -File setup.ps1
+
+# 2. 之后在任何 PowerShell 中输入 oc
+oc
+```
+
+`oc` 命令自动完成以下操作：
+1. 检查 Node.js 和 OpenCode 是否安装
+2. 启动 OpenCode Server（后台最小化）
+3. 启动翻译代理（后台最小化）
+4. 等待代理就绪后连接 TUI
+5. 关闭 TUI 时自动保留后台服务（下次 `oc` 直接连接）
 
 ### 详细文档
 
