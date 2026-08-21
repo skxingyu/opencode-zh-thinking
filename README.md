@@ -48,24 +48,78 @@
 
 ### 安装
 
-```bash
-# 1. 复制三个文件到全局配置目录
-cp plugin/chinese-mode.ts ~/.config/opencode/plugins/
-cp commands/chinese.md   ~/.config/opencode/commands/
-cp scripts/chinese-mode.ps1 ~/.config/opencode/
+> 本节面向人类用户与 AI Agent：按步骤顺序执行即可完成安装。若你是 AI Agent，请将本节视为可执行的操作清单——逐步执行、逐步验证，修改 `opencode.json` 时只做增量合并、保留文件中的现有内容。
 
-# 2. 在全局 opencode.json 的 plugin 数组中注册（重要！）
-#    opencode 只自动发现项目级 .opencode/plugin(s)/ 目录，
-#    全局插件必须显式注册，相对路径相对于 ~/.config/opencode 解析：
-#
-#   "plugin": [
-#     "./plugins/chinese-mode.ts"
-#   ]
-#
-# 3. 重启 opencode
+#### 前置条件
+
+- opencode 已安装且能正常启动（需要支持 `experimental.chat.system.transform` hook 的版本，建议 ≥ 1.17）
+- Windows 用户需已安装 PowerShell 7（`pwsh`）；Linux / macOS 不受影响
+- 全局配置目录为 `~/.config/opencode/`（Windows 下同样是 `%USERPROFILE%\.config\opencode\`，**不是** `~/.opencode/`）
+
+#### 第 1 步：复制插件文件
+
+把仓库中的三个文件复制到全局配置目录。**目标子目录可能不存在，必须先创建**：
+
+| 仓库文件 | 目标位置 |
+|---|---|
+| `plugin/chinese-mode.ts` | `~/.config/opencode/plugins/chinese-mode.ts` |
+| `commands/chinese.md` | `~/.config/opencode/commands/chinese.md` |
+| `scripts/chinese-mode.ps1` | `~/.config/opencode/chinese-mode.ps1` |
+
+Linux / macOS / Git Bash：
+
+```bash
+mkdir -p ~/.config/opencode/plugins ~/.config/opencode/commands
+cp plugin/chinese-mode.ts    ~/.config/opencode/plugins/
+cp commands/chinese.md       ~/.config/opencode/commands/
+cp scripts/chinese-mode.ps1  ~/.config/opencode/
 ```
 
-> **注意**：Windows 下命令模板依赖 PowerShell 7（pwsh）。opencode 在 Windows 上默认优先选择 pwsh 执行 shell 命令。
+Windows (PowerShell 7)：
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.config\opencode\plugins", "$HOME\.config\opencode\commands" | Out-Null
+Copy-Item plugin\chinese-mode.ts   "$HOME\.config\opencode\plugins\"
+Copy-Item commands\chinese.md      "$HOME\.config\opencode\commands\"
+Copy-Item scripts\chinese-mode.ps1 "$HOME\.config\opencode\"
+```
+
+#### 第 2 步：在全局 opencode.json 中注册插件
+
+编辑 `~/.config/opencode/opencode.json`（不存在则创建），在顶层 `plugin` 数组中加入一项 `"./plugins/chinese-mode.ts"`。该路径是**相对于 opencode.json 所在目录**解析的。
+
+合并示例（只展示相关字段，你已有的其他插件保持不动）：
+
+```json
+{
+  "plugin": [
+    "./plugins/chinese-mode.ts"
+  ]
+}
+```
+
+> ⚠️ **这一步不能省略**：opencode 只自动发现项目级 `.opencode/plugin(s)/` 目录；放在 `~/.config/opencode/plugins/` 的文件如果未显式注册，会被**静默忽略**（不报错、不加载、无任何日志提示）。这是安装失败的最常见原因。
+
+#### 第 3 步：重启 opencode 并验证
+
+1. 完全退出并重新启动 opencode（插件与命令都在启动时加载，运行中不会热加载）
+2. 在输入框执行 `/chinese status`
+3. 预期输出：`中文模式: 已开启 (回复=中文, 思考=中文, 防漂移强化=开, 工具=默认)`
+
+### 故障排查
+
+| 现象 | 原因与处理 |
+| --- | --- |
+| 提示 `Command not found: "chinese"` | `commands/chinese.md` 未就位，或修改后未重启 opencode |
+| `/chinese` 能切换但模型行为无变化 | 检查 `opencode.json` 的 `plugin` 数组中是否存在 `"./plugins/chinese-mode.ts"`，且路径拼写正确 |
+| 切换脚本报错 | Windows 下确认 pwsh 7 已安装（`pwsh -v`）；检查 `~/.config/opencode/` 目录可写 |
+| 注入了中文指令但偶尔仍用英文思考 | 属模型侧遵从度波动，可叠加方案 B（翻译代理）兜底 |
+
+### 卸载
+
+1. 从 `opencode.json` 的 `plugin` 数组中删除 `"./plugins/chinese-mode.ts"`
+2. 删除第 1 步复制的三个文件，以及状态文件 `~/.config/opencode/chinese-mode.json`
+3. 重启 opencode
 
 ### 使用
 
@@ -346,8 +400,9 @@ oc
   - 支持 `/chinese` 命令即时开关（on/off/status/tools-on/tools-off/enhanced-on/enhanced-off），无需重启
   - 分区域独立控制：回复 / 思考 / 工具各自开关，工具区域默认关闭避免干扰工具调用
   - 新增文件：`plugin/chinese-mode.ts`、`commands/chinese.md`、`scripts/chinese-mode.ps1`
+- **安装文档重写为 Agent 友好的操作清单**：前置条件、分平台复制命令（先建目录）、注册步骤与失败原因、重启验证、故障排查表、卸载步骤
 - **更新 `opencode.json.example`**：加入全局插件的正确注册方式（`./plugins/chinese-mode.ts`）
-  - 重要发现：opencode 只自动发现项目级 `.opencode/plugin(s)/` 目录，全局插件必须在 `plugin` 数组显式注册才会加载
+  - 重要发现：opencode 只自动发现项目级 `.opencode/plugin(s)/` 目录，全局插件必须在 `plugin` 数组显式注册才会加载（否则静默忽略）
 - 翻译代理（proxy-translator）无变动
 
 ## 许可证
