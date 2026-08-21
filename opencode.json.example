@@ -15,7 +15,8 @@
     }
   },
   "plugin": [
-    "superpowers@git+https://github.com/jnMetaCode/superpowers-zh.git"
+    "superpowers@git+https://github.com/jnMetaCode/superpowers-zh.git",
+    "./plugins/chinese-mode.ts"
   ],
   "instructions": [
     "~/.config/opencode/AGENTS.md",

@@ -1,20 +1,93 @@
 # OpenCode 中文思考 (opencode-zh-thinking)
 
-让 OpenCode AI 编程助手使用简体中文思考和回复。提供两种互补的方案，你可以根据需求选择或组合使用。
-本地ollama下个腾讯hy0.8B的翻译模型，快速好用。翻译就是最稳的，
----
+让 OpenCode AI 编程助手使用简体中文思考和回复。提供三种互补的方案，你可以根据需求选择或组合使用。
+本地ollama下个腾讯hy0.8B的翻译模型，快速好用。翻译就是最稳的。
 
 ## 方案对比
 
-| | **方案 A：提示词替换**（原方案） | **方案 B：翻译代理**（新方案） |
-|---|---|---|
-| **原理** | 替换系统 prompt 为全中文，从源头强制 AI 中文思考 | 在 HTTP 代理层拦截 SSE 事件流，将英文 reasoning 实时翻译为中文 |
-| **侵入性** | 需修改 opencode.json 配置 | 零配置，启动代理即可 |
-| **适用范围** | 仅影响 AI 内部的思考过程 | 可作用于任何 SSE 驱动的 AI 前端 |
-| **稳定性** | ⚠️ 在大量英文注入和多轮对话后容易失效 | ✅ 稳定：直接翻译，不受 prompt 漂移影响 |
-| **实现** | `prompts/` + `AGENTS.md` + `instructions/` | `proxy-translator/` 独立 Node.js 代理 |
+| | **方案 A：提示词替换**（原方案） | **方案 B：翻译代理** | **方案 C：chinese-mode 插件**（推荐） |
+|---|---|---|---|
+| **原理** | 替换系统 prompt 为全中文，从源头强制 AI 中文思考 | 在 HTTP 代理层拦截 SSE 事件流，将英文 reasoning 实时翻译为中文 | 官方 hook 向 system prompt 末尾实时注入语言指令（含防漂移强化段） |
+| **侵入性** | 需修改 opencode.json 配置 | 零配置，启动代理即可 | 复制 3 个文件 + plugin 注册一行 |
+| **可开关** | ❌ 写死在配置里 | 启动/停止代理 | ✅ `/chinese` 即时切换，无需重启 |
+| **稳定性** | ⚠️ 在大量英文注入和多轮对话后容易失效 | ✅ 稳定：直接翻译，不受 prompt 漂移影响 | ✅ 融合三层防护精华的防漂移规则，实测稳定 |
+| **维护成本** | 高（需跟随 opencode 版本维护翻译版 prompt） | 中 | 低 |
+| **适用范围** | 仅影响 AI 内部的思考过程 | 可作用于任何 SSE 驱动的 AI 前端 | opencode 全部 agent（含 minimal 等自定义 agent） |
 
-> **关键结论**：任何通过提示词强制中文思考的方案，在大量英文工具输出、代码上下文注入、长多轮对话之后，AI 都容易切回英文。**直接翻译的方案反而更稳**——它不依赖 AI 对语言指令的遵从，而是从传输层直接替换内容。
+> **关键结论**：任何通过提示词强制中文思考的方案，在大量英文工具输出、代码上下文注入、长多轮对话之后，AI 都容易切回英文。**方案 C 通过「中文引导语锚定」在提示词层对抗漂移；方案 B 从传输层直接翻译，最稳但需要额外进程。两者可叠加使用。**
+
+---
+
+## 方案 C：chinese-mode 插件（推荐）
+
+移植自 DeepSeek Harness 的 [dsh-chinese-mode](https://github.com/dawnliming/dsh-chinese-mode)，并融合了本仓库方案 A 三层防护中实测最有效的部分。
+
+### 原理
+
+通过 opencode 官方插件 hook `experimental.chat.system.transform`，在**每次 LLM 请求**组装 system prompt 时实时计算并追加语言指令到末尾（紧邻对话，遵循度高）。状态存于 JSON 文件，插件每次请求前重新读取，因此切换即时生效、无需重启。
+
+注入内容分层：
+
+```
+┌──────────────────────────────────────────────┐
+│ 基础指令                                      │
+│  回复始终使用简体中文（代码/命令/路径保留原文）   │
+│  思考过程始终使用简体中文（不受上下文语言影响）    │
+├──────────────────────────────────────────────┤
+│ 强化段 enhanced（默认开启，源自旧方案三层防护）   │
+│  · 每段思考以中文引导语开头（锚定思维链语言）      │
+│  · 禁止 Let me / The user 等英文思考开头        │
+│  · 工具输出用中文归纳，不复述原文                 │
+│  · 发现英文思考立即切回 + 正反示例                │
+└──────────────────────────────────────────────┘
+```
+
+### 安装
+
+```bash
+# 1. 复制三个文件到全局配置目录
+cp plugin/chinese-mode.ts ~/.config/opencode/plugins/
+cp commands/chinese.md   ~/.config/opencode/commands/
+cp scripts/chinese-mode.ps1 ~/.config/opencode/
+
+# 2. 在全局 opencode.json 的 plugin 数组中注册（重要！）
+#    opencode 只自动发现项目级 .opencode/plugin(s)/ 目录，
+#    全局插件必须显式注册，相对路径相对于 ~/.config/opencode 解析：
+#
+#   "plugin": [
+#     "./plugins/chinese-mode.ts"
+#   ]
+#
+# 3. 重启 opencode
+```
+
+> **注意**：Windows 下命令模板依赖 PowerShell 7（pwsh）。opencode 在 Windows 上默认优先选择 pwsh 执行 shell 命令。
+
+### 使用
+
+```
+/chinese              # 切换总开关（开 <-> 关）
+/chinese on / off     # 明确开启 / 关闭
+/chinese status       # 查看当前状态
+/chinese enhanced-on  # 开启防漂移强化段（默认开启）
+/chinese enhanced-off # 关闭强化段（省 token 时用）
+/chinese tools-on     # 开启工具区域中文注入（默认关，避免影响工具调用）
+/chinese tools-off    # 关闭工具区域中文注入
+```
+
+### 设置项（~/.config/opencode/chinese-mode.json）
+
+| 字段 | 默认 | 说明 |
+| --- | --- | --- |
+| `enabled` | `true` | 总开关；关闭后完全不注入 |
+| `reply` | `true` | 回复区域中文指令 |
+| `thinking` | `true` | 思考区域中文指令 |
+| `enhanced` | `true` | 防漂移强化段（依附于 thinking） |
+| `tools` | `false` | 工具区域中文注入（默认关） |
+
+### 与自定义 agent 共存
+
+hook 按插件注册顺序串行执行。若你同时使用「整体替换 system prompt」类插件（如极简 prompt 方案），请把 chinese-mode 注册在其**之后**，保证中文注入不被替换掉。
 
 ---
 
@@ -66,10 +139,16 @@ compose agent 基于 [superpowers-zh](https://github.com/jnMetaCode/superpowers-
 ```
 opencode-zh-thinking/
 ├── README.md                   # 本文件
-├── opencode.json.example       # 仅含语言 + superpowers-zh 插件的配置示例
+├── opencode.json.example       # 语言 + superpowers-zh 插件 + chinese-mode 注册示例
 ├── AGENTS.md                   # 全局指令：语言要求 + 任务委托
 ├── instructions/
 │   └── workflow.md             # 工具调用后的语言保持规则
+├── plugin/
+│   └── chinese-mode.ts         # 方案 C：中文模式插件本体
+├── commands/
+│   └── chinese.md              # 方案 C：/chinese 切换命令
+├── scripts/
+│   └── chinese-mode.ps1        # 方案 C：状态切换脚本
 └── prompts/
     ├── compose-zh.md           # compose 模式提示词（含 superpowers-zh 工作流）
     └── build-zh.txt            # build 模式完整中文翻译版
@@ -107,7 +186,8 @@ cp prompts/build-zh.txt ~/.config/opencode/prompts/
     }
   },
   "plugin": [
-    "superpowers@git+https://github.com/jnMetaCode/superpowers-zh.git"
+    "superpowers@git+https://github.com/jnMetaCode/superpowers-zh.git",
+    "./plugins/chinese-mode.ts"
   ],
   "instructions": [
     "~/.config/opencode/AGENTS.md",
@@ -246,10 +326,25 @@ oc
 
 ## 组合使用
 
-两种方案不冲突，可以同时使用：
+三种方案不冲突，可以按需组合：
 
-1. 用 **方案 A（提示词替换）** 让 AI 尽量用中文思考
-2. 用 **方案 B（翻译代理）** 作为兜底，补上提示词覆盖不到的部分
+1. 用 **方案 C（chinese-mode 插件）** 作为日常主力：官方 hook 注入 + 即时开关 + 防漂移强化，覆盖绝大多数场景
+2. 用 **方案 B（翻译代理）** 作为兜底：传输层直接翻译 reasoning，不依赖模型对指令的遵从
+3. 方案 A（全中文 persona 替换）已被方案 C 取代——其三层防护的精华（中文引导语锚定、工具输出后保持中文、正反示例）已融入方案 C 的强化段；仅在你希望彻底消除系统提示中的英文环境时才考虑
+
+## 更新说明
+
+### 2026-08-21
+
+- **新增方案 C：chinese-mode 插件**（推荐）
+  - 移植自 [dsh-chinese-mode](https://github.com/dawnliming/dsh-chinese-mode)，改用 opencode 官方插件 hook `experimental.chat.system.transform`
+  - 融合原方案 A 三层防护的防漂移精华：中文引导语锚定、工具输出后保持中文、正反示例
+  - 支持 `/chinese` 命令即时开关（on/off/status/tools-on/tools-off/enhanced-on/enhanced-off），无需重启
+  - 分区域独立控制：回复 / 思考 / 工具各自开关，工具区域默认关闭避免干扰工具调用
+  - 新增文件：`plugin/chinese-mode.ts`、`commands/chinese.md`、`scripts/chinese-mode.ps1`
+- **更新 `opencode.json.example`**：加入全局插件的正确注册方式（`./plugins/chinese-mode.ts`）
+  - 重要发现：opencode 只自动发现项目级 `.opencode/plugin(s)/` 目录，全局插件必须在 `plugin` 数组显式注册才会加载
+- 翻译代理（proxy-translator）无变动
 
 ## 许可证
 
