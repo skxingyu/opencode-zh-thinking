@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     opencode 中文模式切换脚本，供 /chinese 命令调用。
 
@@ -25,6 +25,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# 强制 stdout 以 UTF-8 写出（必须在任何输出发生前设置，
+# 否则 writer 已按系统 ANSI 代码页缓存，补设无效导致 TUI 中文乱码）
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $path = Join-Path $HOME ".config\opencode\chinese-mode.json"
 
