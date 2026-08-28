@@ -53,7 +53,7 @@
 #### 前置条件
 
 - opencode 已安装且能正常启动（需要支持 `experimental.chat.system.transform` hook 的版本，建议 ≥ 1.17）
-- Windows 用户需已安装 PowerShell 7（`pwsh`）；Linux / macOS 不受影响
+- Windows 用户需已安装 **PowerShell 7（`pwsh`）**，**不要**使用系统自带的 Windows PowerShell 5.1（`powershell.exe`）；Linux / macOS 不受影响
 - 全局配置目录为 `~/.config/opencode/`（Windows 下同样是 `%USERPROFILE%\.config\opencode\`，**不是** `~/.opencode/`）
 
 #### 第 1 步：复制插件文件
@@ -114,6 +114,33 @@ Copy-Item scripts\chinese-mode.ps1 "$HOME\.config\opencode\"
 | `/chinese` 能切换但模型行为无变化 | 检查 `opencode.json` 的 `plugin` 数组中是否存在 `"./plugins/chinese-mode.ts"`，且路径拼写正确 |
 | 切换脚本报错 | Windows 下确认 pwsh 7 已安装（`pwsh -v`）；检查 `~/.config/opencode/` 目录可写 |
 | 注入了中文指令但偶尔仍用英文思考 | 属模型侧遵从度波动，可叠加方案 B（翻译代理）兜底 |
+
+### Windows 环境建议：优先 pwsh 7，系统编码改为 UTF-8
+
+> 背景：早期版本在中文 Windows（系统区域「简体中文」，控制台代码页 `chcp` 936 / GBK）下，`/chinese` 输出曾出现乱码。根因是 PowerShell 的 stdout 编码跟随系统代码页以 GBK 写出，而 opencode 按 UTF-8 解读导致不一致。现已修复（见更新说明 2026-08-28）。为避免再次踩坑，建议 Windows 用户做以下两点：
+
+**① 使用 PowerShell 7（`pwsh`）而不是 Windows PowerShell 5.1**
+
+- 脚本在输出前已强制 `[Console]::OutputEncoding = UTF8`，并兼容 5.1（含 UTF-8 BOM），但 **5.1 仍不推荐**：
+  - 5.1 解析无 BOM 的 UTF-8 源文件时按 ANSI(GBK) 处理，历史版本（修复前）会直接 `ParserError` 崩溃
+  - 5.1 不支持部分现代语法，且维护状态（随 Windows 冻结），新代码不会为其优化
+- 安装 pwsh 7：`winget install Microsoft.PowerShell`，然后确认 `pwsh -v` 可用
+
+**② 将系统/终端编码从 GBK（代码页 936）改为 UTF-8**
+
+推荐让终端统一走 UTF-8，从源头消除编码不一致：
+
+```powershell
+# 方式一：仅对当前终端临时生效（推荐，低风险）
+chcp 65001
+
+# 方式二：注册表开启「Beta：使用 Unicode UTF-8 提供全球语言支持」（Windows 10/11）
+#   设置 → 时间与语言 → 语言 → 管理语言设置 → 更改系统区域设置
+#   → 勾选「Beta: 使用 Unicode UTF-8 提供全球语言支持」→ 重启
+#   注意：这会把系统 ANSI 代码页全局改为 65001，个别老软件（如部分 GBK 编码的文本程序）可能受影响
+```
+
+> 即便不修改系统编码，脚本也能正常输出（已强制 UTF-8）；此建议是进一步降低同类风险、让整个终端体验一致的可选优化。
 
 ### 卸载
 
@@ -391,6 +418,14 @@ oc
 3. 方案 A 原版（全中文 persona 替换）已被更新版取代——其三层防护的精华（中文引导语锚定、工具输出后保持中文、正反示例）已融入更新版的强化段；仅在你希望彻底消除系统提示中的英文环境时才考虑
 
 ## 更新说明
+
+### 2026-08-28
+
+- **修复 Windows 中文环境下 `/chinese` 输出乱码**（感谢 [tttrove](https://github.com/tttrove) 反馈与提交 PR #2）
+  - `scripts/chinese-mode.ps1` 开头（任何输出前）强制 `[Console]::OutputEncoding = UTF8`，解决系统代码页 936/GBK 下 stdout 编码不一致导致的乱码
+  - `commands/chinese.md` 改为新起进程 `pwsh -NoProfile -ExecutionPolicy Bypass -File ...` 调用，保证编码设置在 writer 创建前生效
+  - `scripts/chinese-mode.ps1` 添加 UTF-8 BOM，兼容 Windows PowerShell 5.1 手动执行
+- **文档补充「Windows 环境建议」小节**：推荐使用 pwsh 7（而非 PowerShell 5.1），并给出将系统/终端编码从 GBK 改为 UTF-8 的两种方式
 
 ### 2026-08-21
 
